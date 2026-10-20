@@ -187,7 +187,8 @@ class ServerTests(unittest.TestCase):
     def test_unknown_session_rejected(self):
         self.assertEqual(
             self.post(
-                "/api/plan", {"session": "x" * 32, "threshold": 0.8, "budget": 1}
+                "/api/plan",
+                {"session": "x" * 32, "threshold": 0.8, "budget": 1, "revision": 0},
             )[0],
             400,
         )
@@ -197,8 +198,21 @@ class ServerTests(unittest.TestCase):
 
     def test_session_history_restores_prior_import(self):
         first = json.loads(
-            self.post("/api/import", {"csv": "id,text\na,Where is my card?"})[2]
+            self.post(
+                "/api/import",
+                {"csv": "id,text\na,Where is my card?", "threshold": 1.0, "budget": 1},
+            )[2]
         )
+        review_body = {
+            "session": first["session"],
+            "id": "a",
+            "queue": "account",
+            "note": "Test human route",
+            "version": first["rows"][0]["version"],
+            "revision": first["revision"],
+        }
+        self.assertEqual(self.post("/api/review", review_body)[0], 200)
+        self.assertEqual(self.post("/api/review", review_body)[0], 409)
         self.post("/api/replay", {})
         history = json.loads(self.request("/api/sessions")[2])["sessions"]
         self.assertIn(first["session"], [x["id"] for x in history])
@@ -206,6 +220,10 @@ class ServerTests(unittest.TestCase):
             self.request("/api/workspace?session=" + first["session"])[2]
         )
         self.assertEqual(restored["rows"][0]["text"], "Where is my card?")
+        self.assertEqual(restored["rows"][0]["review"]["queue"], "account")
+        self.assertEqual(
+            restored["rows"][0]["candidate"], first["rows"][0]["candidate"]
+        )
 
     def test_stale_http_plan_returns_conflict(self):
         state = json.loads(self.post("/api/replay", {})[2])

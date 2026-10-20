@@ -15,6 +15,13 @@ from artifacts import ROOT, verify, valid_name, package, BUNDLE_FILES
 class ArtifactTests(unittest.TestCase):
     def test_real_bundle(self):
         self.assertTrue(verify(ROOT / "evidence/queuepilot-evidence.zip")["valid"])
+        with zipfile.ZipFile(ROOT / "evidence/queuepilot-evidence.zip") as archive:
+            hashes = json.loads(archive.read("manifest.json"))["sha256"]
+        self.assertEqual(set(hashes), set(BUNDLE_FILES))
+        for name, expected in hashes.items():
+            self.assertEqual(
+                hashlib.sha256((ROOT / name).read_bytes()).hexdigest(), expected, name
+            )
 
     def altered(self, mutation):
         with zipfile.ZipFile(ROOT / "evidence/queuepilot-evidence.zip") as source:
