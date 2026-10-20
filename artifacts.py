@@ -12,6 +12,45 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent
 MAX_EXPANDED = 50_000_000
+BUNDLE_FILES = (
+    "artifacts.py",
+    "diagnostics.py",
+    "evaldelta.py",
+    "routing.py",
+    "server.py",
+    "store.py",
+    "text_model.py",
+    "train.py",
+    "test_artifacts.py",
+    "test_diagnostics.py",
+    "test_models.py",
+    "test_routing.py",
+    "test_server.py",
+    "test_store.py",
+    "protocol.json",
+    "requirements.txt",
+    "LICENSE",
+    "LICENSE-EVALDELTA",
+    "data/LICENSE-BANKING77",
+    "data/README.md",
+    "data/categories.json",
+    "data/challenge.json",
+    "data/sample-import.csv",
+    "data/train.csv",
+    "data/test.csv",
+    "models/baseline.json",
+    "models/baseline.npz",
+    "models/candidate.json",
+    "models/candidate.npz",
+    "web/index.html",
+    "web/style.css",
+    "web/app.js",
+    "evidence/report.json",
+    "evidence/predictions.json",
+    "evidence/splits.json",
+    "evidence/baseline.jsonl",
+    "evidence/candidate.jsonl",
+)
 
 
 def strict_object(pairs):
@@ -91,29 +130,11 @@ def verify(path):
 
 def package(root=ROOT):
     root = Path(root)
-    files = sorted(
-        [
-            *root.glob("*.py"),
-            *root.glob("*.json"),
-            root / "requirements.txt",
-            root / "LICENSE",
-            root / "LICENSE-EVALDELTA",
-            *root.glob("data/*"),
-            *root.glob("models/*"),
-            *root.glob("web/*"),
-            *[
-                root / "evidence" / n
-                for n in (
-                    "report.json",
-                    "predictions.json",
-                    "splits.json",
-                    "baseline.jsonl",
-                    "candidate.jsonl",
-                )
-            ],
-        ]
-    )
-    files = [p for p in files if p.is_file() and not p.is_symlink()]
+    # Closed allowlist: a future credentials.json, customer CSV or debug log must
+    # never become public merely because it was placed beside project sources.
+    files = [root / name for name in sorted(BUNDLE_FILES)]
+    if any(not p.is_file() or p.is_symlink() for p in files):
+        raise ValueError("Reference files must exist and must not be symlinks.")
     payload = {p.relative_to(root).as_posix(): p.read_bytes() for p in files}
     manifest = {
         "version": 1,

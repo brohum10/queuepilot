@@ -25,6 +25,7 @@ from routing import (
 from store import Store, Conflict
 from text_model import TextModel
 from artifacts import strict_object
+from diagnostics import reference_audit
 
 ROOT = Path(__file__).resolve().parent
 
@@ -53,10 +54,19 @@ class Application:
         }
         self.labels = self.models["candidate"].labels
         self.report = json.loads((self.root / "evidence/report.json").read_text())
+        for name in ("train.py", "text_model.py", "routing.py", "evaldelta.py"):
+            if hashlib.sha256(
+                (self.root / name).read_bytes()
+            ).hexdigest() != self.report["source_sha256"].get(name):
+                raise ValueError(
+                    "Reference source changed; rebuild the experiment before running: "
+                    + name
+                )
         self.predictions = json.loads(
             (self.root / "evidence/predictions.json").read_text()
         )
         self.threshold = self.report["models"]["candidate"]["policy"]["threshold"]
+        self.diagnostics = reference_audit(self.predictions, self.threshold)
         self.token, self.lock, self.store = (
             secrets.token_urlsafe(32),
             threading.Lock(),
@@ -94,6 +104,10 @@ class Application:
             type(body["budget"]) is not int or not 0 <= body["budget"] <= MAX_ROWS
         ):
             raise ValueError("Review budget must be 0–1000 slots.")
+        if path in ("/api/plan", "/api/review") and (
+            type(body.get("revision")) is not int or body["revision"] < 0
+        ):
+            raise ValueError("Supply the inbox revision returned by the workspace.")
         if path == "/api/replay":
             return self.replay(
                 body.get("limit", 120),
@@ -102,7 +116,10 @@ class Application:
             )
         if path == "/api/plan":
             return self.store.configure(
-                body.get("session"), body.get("threshold"), body.get("budget")
+                body.get("session"),
+                body.get("threshold"),
+                body.get("budget"),
+                body["revision"],
             )
         if path == "/api/import":
             rows = parse_csv(body.get("csv"), self.labels)
@@ -130,6 +147,7 @@ class Application:
                 body.get("queue"),
                 clean_text(body.get("note")),
                 body.get("version"),
+                body["revision"],
             )
         raise LookupError("Unknown API endpoint.")
 
@@ -187,9 +205,12 @@ def make_server(port, db, root=ROOT):
                             "queues": QUEUES,
                             "report": app.report,
                             "threshold": app.threshold,
+                            "diagnostics": app.diagnostics,
                         }
                     )
                 session = parse_qs(parsed.query).get("session", [None])[0]
+                if path == "/api/sessions":
+                    return self.send({"sessions": app.store.sessions()})
                 if path == "/api/workspace":
                     return self.send(app.store.state(session))
                 if path == "/api/export.csv":
@@ -248,9 +269,14 @@ def make_server(port, db, root=ROOT):
                 return self.send({"error": "JSON required."}, 415)
             try:
                 length = int(self.headers.get("Content-Length", "0"))
-                if not 0 < length <= 520_000 or self.headers.get("Transfer-Encoding"):
+                # A valid 500 KB CSV can nearly double when quotes/backslashes
+                # are JSON-escaped. Keep a bounded envelope without rejecting it.
+                if not 0 < length <= 1_100_000 or self.headers.get("Transfer-Encoding"):
                     return self.send(
-                        {"error": "Request exceeds 520 KB or has no length."}, 413
+                        {
+                            "error": "Request exceeds the 1.1 MB JSON envelope or has no length."
+                        },
+                        413,
                     )
                 body = json.loads(
                     self.rfile.read(length),

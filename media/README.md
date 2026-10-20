@@ -1,30 +1,30 @@
-# QueuePilot demo
+# QueuePilot — closer-look demo
 
-`QueuePilot-Demo.mp4` is a 37.5-second, silent, captioned 1080 × 1350 H.264
-recording of the local application. `QueuePilot-Cover.png` is the opening frame;
-`QueuePilot-Captions.srt` is an optional text alternative to the burned-in captions.
+`QueuePilot-Demo.mp4` is a 40-second, silent, captioned 1080 × 1080 H.264
+recording. The matching PNG cover is its opening frame; the SRT is an optional
+text alternative. No speech auto-captions or background music are needed.
 
-## What is actually shown
-
-| Time | Evidence shown | Important boundary |
+| Time | Actual evidence shown | What it does not establish |
 |---|---|---|
-| 0–7s | Authored duplicate-charge + login example; 99.4% single-intent confidence, held by the multiple-issue rule | Confidence is not accuracy; the rule is explicit, not an LLM or general multi-intent detector |
-| 7–13s | Actual review-capacity control changes; 120-message benchmark replay | Slots are a batch assumption, not measured staffing throughput |
-| 13–19s | With zero review slots, 50 flagged requests wait; 70 suggestions remain | Nothing is force-routed to clear a backlog; suggestions are not resolved tickets |
-| 19–25s | A demo human route and reason after reloading the same SQLite session | Original predictions/test labels remain unchanged; no automatic retraining or customer action |
-| 25–32s | 88.87% baseline vs 88.67% candidate exact-intent accuracy; final BLOCK | Four queue slices are inconclusive, not proof of a statistically significant regression |
-| 32–37.5s | Downloadable models, inputs, predictions, reports and manifest | Unsigned hashes verify consistency, not authenticity or scientific validity |
+| 0–6s | 28 intent-label disagreements among 1684 automatic suggestions: 7 map to a different team, 21 to the same team | Not 28 observed wrong customer destinations; seven-team mapping is a project convention |
+| 6–12s | `test-2446`, the highest-confidence mapped-team disagreement; cheque deposit vs delayed-balance intent | A confident model can escape the explicit hold rules; not all failures are detected |
+| 12–18s | `test-2637`, the highest-confidence same-team intent disagreement; disposable-card labels are debatable | Supplied labels are not infallible ground truth; no operational harm is inferred |
+| 18–24s | Actual capacity control: 30 slots → 0; 20 waiting → 50; 70 suggestions remain | Batch-capacity assumption, not measured staffing throughput or resolved tickets |
+| 24–30s | Demo human override to Account & app, reopened after reload, with the original Security & access suggestion retained | A saved route is not an account action, intent correction, training update or proof of correct handling |
+| 30–35.5s | Exact-intent baseline 88.87% vs candidate 88.67%; four team-slice checks inconclusive; BLOCK | Inconclusive is not proof of regression; passing software tests is not model approval |
+| 35.5–40s | Evidence export, portable models and reproducibility; 105 software tests | Unsigned hashes check consistency, not authenticity or scientific validity |
 
-The opening example is author-written. Benchmark metrics use all 3072 retained
-BANKING77 official-test messages, not the 120-row inbox sample. BANKING77 is
-crowdsourced English single-intent text, not live customer traffic. Reference
-policy/calibration/test splits are separate and fixed before official-test scoring.
+Counts use the unchanged frozen policy on all 3072 retained BANKING77 official-test
+queries, not the 120-row inbox. Example selection is deterministic: confidence
+descending, then case ID. At most six per group are offered, not a representative
+sample. The seven-team mapping is hand-defined. These benchmark disagreements
+are not actual support outcomes. The authored two-issue scratchpad remains in
+the app, but is not this video's headline evidence.
 
-The edit crops/scales actual screencast pixels and adds explanatory captions.
-Navigation pauses are cut; settled frames are held for readability. The capacity
-change is captured in real time. The audit close-up is a separate capture after
-reloading the persisted session. There are no synthesized predictions, animated
-fake controls, staged performance claims, music or voiceover.
+Editing only trims navigation gaps, holds settled frames for reading, crops/scales
+actual recorded pixels, and adds explanatory text. Close-ups move from the
+supplied label to the candidate prediction; no UI or model output is synthesized.
+The review scene is recorded after a real page reload of the same SQLite inbox.
 
-`inbox.png`, `review-audit.png` and `model-check.png` are actual app screenshots.
-No private inbox or external customer data is included.
+Screenshots are actual app captures. No private imported customer data, local
+runtime database, API credential, or externally retrieved personal data is included.

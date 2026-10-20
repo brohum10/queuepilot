@@ -3,15 +3,25 @@ import io
 import json
 from pathlib import Path
 import tempfile
+import shutil
+import uuid
+from contextlib import redirect_stdout
 import unittest
 import zipfile
 
-from artifacts import ROOT, verify, valid_name
+from artifacts import ROOT, verify, valid_name, package, BUNDLE_FILES
 
 
 class ArtifactTests(unittest.TestCase):
     def test_real_bundle(self):
         self.assertTrue(verify(ROOT / "evidence/queuepilot-evidence.zip")["valid"])
+        with zipfile.ZipFile(ROOT / "evidence/queuepilot-evidence.zip") as archive:
+            hashes = json.loads(archive.read("manifest.json"))["sha256"]
+        self.assertEqual(set(hashes), set(BUNDLE_FILES))
+        for name, expected in hashes.items():
+            self.assertEqual(
+                hashlib.sha256((ROOT / name).read_bytes()).hexdigest(), expected, name
+            )
 
     def altered(self, mutation):
         with zipfile.ZipFile(ROOT / "evidence/queuepilot-evidence.zip") as source:
@@ -75,6 +85,30 @@ class ArtifactTests(unittest.TestCase):
             "./a",
         ]:
             self.assertFalse(valid_name(name), name)
+
+    def test_export_allowlist_excludes_unrelated_private_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            canary = uuid.uuid4().hex
+            for name in BUNDLE_FILES:
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT / name, target)
+            for name in (
+                "credentials.json",
+                "data/private-customers.csv",
+                "web/debug.log",
+            ):
+                (root / name).write_text(canary)
+            with redirect_stdout(io.StringIO()):
+                package(root)
+            with zipfile.ZipFile(root / "evidence/queuepilot-evidence.zip") as archive:
+                self.assertEqual(
+                    set(archive.namelist()) - {"manifest.json"}, set(BUNDLE_FILES)
+                )
+                self.assertFalse(
+                    any(canary.encode() in archive.read(n) for n in archive.namelist())
+                )
 
 
 if __name__ == "__main__":
