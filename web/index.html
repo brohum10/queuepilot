@@ -67,7 +67,7 @@
               <p>
                 Rehearse the handoff between a text classifier and a human
                 team.<br class="desktop" />
-                See what gets routed, what needs review, and what has to wait.
+                See suggested routes, what needs review, and what has to wait.
               </p>
             </div>
             <div class="hero-actions">
@@ -77,13 +77,25 @@
               ><small>Benchmark replay, not live customer traffic.</small>
             </div>
           </div>
+          <div class="session-bar">
+            <label for="saved-inboxes"
+              >Saved inboxes
+              <small>50 most recent · kept on this device</small></label
+            >
+            <select id="saved-inboxes" aria-label="Saved inboxes">
+              <option>Loading saved inboxes…</option>
+            </select>
+            <button class="secondary small" id="reload-inbox">
+              Reopen saved inbox
+            </button>
+          </div>
           <div class="metrics" aria-label="Inbox metrics">
             <article>
-              <span>MESSAGES IN THIS REPLAY</span><strong id="total">—</strong
+              <span>MESSAGES IN THIS INBOX</span><strong id="total">—</strong
               ><small id="source-summary">Loading local workspace…</small>
             </article>
             <article>
-              <span>AUTO-ROUTED</span><strong id="auto">—</strong
+              <span>ROUTE SUGGESTIONS</span><strong id="auto">—</strong
               ><small id="coverage"
                 >Suggested routes, not resolved tickets</small
               >
@@ -114,7 +126,11 @@
                   value="30"
                   aria-label="Review slots" /></label
               ><label class="knob"
-                >Confidence threshold <output id="threshold-value" aria-label="Selected confidence threshold">—</output
+                >Confidence threshold
+                <output
+                  id="threshold-value"
+                  aria-label="Selected confidence threshold"
+                  >—</output
                 ><input
                   type="range"
                   id="threshold"
@@ -139,6 +155,12 @@
                 review.
               </p>
             </div>
+            <div
+              id="draft-status"
+              class="draft-status"
+              role="status"
+              hidden
+            ></div>
             <div class="inbox-heading">
               <div>
                 <h2>The inbox <span id="inbox-count"></span></h2>
@@ -154,11 +176,19 @@
             <div class="toolbar">
               <div class="filters" role="group" aria-label="Message status">
                 <button class="filter active" data-filter="all">All</button
-                ><button class="filter" data-filter="auto">Auto-routed</button
+                ><button class="filter" data-filter="auto">Suggested</button
                 ><button class="filter" data-filter="review">Review</button
                 ><button class="filter" data-filter="waiting">Waiting</button
                 ><button class="filter" data-filter="reviewed">Reviewed</button>
               </div>
+              <label class="search-label" for="inbox-search"
+                >Find a request
+                <input
+                  id="inbox-search"
+                  type="search"
+                  placeholder="Message, ID or team…"
+                />
+              </label>
               <label class="truth-toggle"
                 ><input id="show-truth" type="checkbox" /> Reveal supplied
                 labels</label
@@ -231,14 +261,48 @@
             </p>
           </div>
           <div id="comparison"></div>
+          <div class="panel" id="reference-lab">
+            <div class="eyebrow">RETROSPECTIVE FAILURE EXPLORER</div>
+            <h2>Different metric. Different story.</h2>
+            <p>
+              Exact intent and mapped team are not the same target. Inspect
+              actual held-out examples under the unchanged frozen policy—not a
+              curated claim that the model always knows when it is wrong.
+            </p>
+            <div id="diagnostic-summary" class="diagnostic-summary"></div>
+            <div
+              id="audit-groups"
+              class="audit-groups"
+              role="group"
+              aria-label="Reference case groups"
+            ></div>
+            <label for="reference-case"
+              >Reference case
+              <small
+                >Highest candidate confidence first · at most six examples per
+                group</small
+              ></label
+            >
+            <select id="reference-case"></select>
+            <article id="reference-detail" aria-live="polite"></article>
+            <p class="audit-boundary">
+              Supplied labels can be ambiguous. Seven team queues are this
+              project's explicit mapping, not measured operational ground truth.
+              Test labels are used for this analysis only, never routing or
+              policy fitting. These are disagreements with labels—not customer
+              outcomes.
+            </p>
+          </div>
           <div class="panel">
             <div class="panel-title">
-              <h2>Check each team’s queue.</h2>
+              <h2>Exact-intent checks, sliced by team.</h2>
               <span class="pill">PAIRED COMPARISON</span>
             </div>
             <p>
-              Approximate, unadjusted per-slice 95% intervals. A pass is a
-              configured test result—not a production safety claim.
+              These are exact-intent scores within each mapped team—not
+              team-routing accuracy. Approximate, unadjusted per-slice 95%
+              intervals. A pass is a configured test result—not production
+              approval.
             </p>
             <div class="table-wrap">
               <table>

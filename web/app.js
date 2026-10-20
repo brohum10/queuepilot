@@ -16,7 +16,7 @@ const human = (s) =>
     .replace(/^\w/, (c) => c.toUpperCase());
 const stateLabel = (s) =>
   ({
-    auto: "Auto-routed",
+    auto: "Suggested route",
     review: "Ready for review",
     waiting: "Waiting for capacity",
     reviewed: "Human reviewed",
@@ -38,7 +38,22 @@ let boot,
   pending = false,
   thresholdDirty = false;
 let importRead = Promise.resolve(),
-  importFileError = "";
+  importFileError = "",
+  fileGeneration = 0,
+  auditGroup = "queue_disagreement";
+const reviewDrafts = new Map();
+const mutableIds = [
+  "replay",
+  "open-import",
+  "apply",
+  "reset-policy",
+  "saved-inboxes",
+  "reload-inbox",
+  "budget",
+  "threshold",
+];
+const confidencePct = (x) => (x >= 0.9995 && x < 1 ? "≥99.9%" : pct(x));
+const effectiveQueue = (row) => row.review?.queue ?? row.suggested_queue;
 const emptyInspector = $("inspector").innerHTML;
 const PAGE_SIZE = 6;
 function showError(message) {
@@ -75,6 +90,8 @@ async function action(button, fn) {
   if (pending) return;
   pending = true;
   const previous = button.disabled;
+  mutableIds.forEach((id) => ($(id).disabled = true));
+  $("main").setAttribute("aria-busy", "true");
   button.disabled = true;
   $("error").hidden = true;
   try {
@@ -83,10 +100,12 @@ async function action(button, fn) {
     showError(error.message);
   } finally {
     pending = false;
+    mutableIds.forEach((id) => ($(id).disabled = false));
+    $("main").setAttribute("aria-busy", "false");
     button.disabled = previous;
   }
 }
-function render() {
+function render(syncControls = false) {
   const m = inbox.metrics;
   $("total").textContent = m.total;
   $("auto").textContent = m.auto;
@@ -103,13 +122,16 @@ function render() {
     : "Local import · no external calls";
   $("source-detail").textContent = inbox.source || "No inbox loaded.";
   $("inbox-count").textContent = m.total + " requests";
-  $("budget").max = Math.max(120, m.total);
-  $("budget").value = inbox.budget ?? 30;
-  $("budget-value").textContent = inbox.budget ?? 30;
-  $("threshold").value = Math.round(inbox.threshold * 100);
-  $("threshold-value").textContent = pct(inbox.threshold);
-  $("threshold").setAttribute("aria-valuetext", pct(inbox.threshold));
-  thresholdDirty = false;
+  if (syncControls) {
+    $("budget").max = Math.max(120, m.total);
+    $("budget").value = inbox.budget ?? 30;
+    $("budget-value").textContent = inbox.budget ?? 30;
+    $("threshold").value = Math.round(inbox.threshold * 100);
+    $("threshold-value").textContent = pct(inbox.threshold);
+    $("threshold").setAttribute("aria-valuetext", pct(inbox.threshold));
+    thresholdDirty = false;
+  }
+  renderDraftStatus();
   const frozen = Math.abs(inbox.threshold - boot.threshold) < 1e-10;
   $("policy-mode").textContent = frozen
     ? "Frozen policy"
@@ -123,10 +145,23 @@ function render() {
     "/api/corrections.json?session=" + encodeURIComponent(inbox.session);
   $("audit-stat").hidden = !showTruth;
   $("audit-stat").textContent = m.labeled
-    ? `Supplied labels: ${m.labeled}/${m.total} messages. ${m.labeled_auto} labeled auto-routes; ${m.wrong_auto ?? "no"} wrong auto-routes${m.auto_accuracy == null ? "" : ` (${pct(m.auto_accuracy)} accuracy among labeled auto-routes)`}. Review flags are not corrections. User-supplied labels are unverified.`
+    ? `Supplied labels: ${m.labeled}/${m.total} messages. ${m.labeled_auto} labeled automatic suggestions; ${m.wrong_auto ?? "no"} intent-label disagreements${m.auto_accuracy == null ? "" : ` (${pct(m.auto_accuracy)} exact-intent agreement among those suggestions)`}. Intent mismatch does not necessarily mean a different team. Review flags are not corrections. User-supplied labels are unverified.`
     : "No ground-truth labels were supplied. Error rates cannot be measured for this inbox.";
+  document
+    .querySelectorAll(".filter")
+    .forEach((el) =>
+      el.classList.toggle("active", el.dataset.filter === filter),
+    );
+  const query = $("inbox-search").value.trim().toLocaleLowerCase();
   const rows = inbox.rows.filter(
-    (r) => filter === "all" || r.status === filter,
+    (r) =>
+      (filter === "all" || r.status === filter) &&
+      [
+        r.id,
+        r.text,
+        boot.queues[effectiveQueue(r)],
+        human(r.candidate.label),
+      ].some((value) => value.toLocaleLowerCase().includes(query)),
   );
   if (selected && !rows.some((r) => r.id === selected)) selected = null;
   page = Math.min(page, Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1));
@@ -135,7 +170,7 @@ function render() {
       .slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
       .map(
         (row) =>
-          `<button class="message ${selected === row.id ? "selected" : ""}" data-message="${esc(row.id)}"><span class="message-top"><span class="message-id">${esc(row.id)}</span><span class="state ${esc(row.status)}">${stateLabel(row.status)}</span></span><span class="message-text">${esc(row.text)}</span><span class="message-meta"><span>${esc(boot.queues[row.suggested_queue])}</span><span>·</span><span>${esc(human(row.candidate.label))}</span><span class="confidence">${pct(row.candidate.confidence)}</span></span>${showTruth ? `<span class="truth">Supplied label: ${esc(row.label ? human(row.label) : "Not supplied")}</span>` : ""}</button>`,
+          `<button class="message ${selected === row.id ? "selected" : ""}" data-message="${esc(row.id)}"><span class="message-top"><span class="message-id">${esc(row.id)}</span><span class="state ${esc(row.status)}">${stateLabel(row.status)}</span></span><span class="message-text">${esc(row.text)}</span><span class="message-meta"><span>${row.review ? "Human route: " : ""}${esc(boot.queues[effectiveQueue(row)])}</span><span>·</span><span>Model: ${esc(human(row.candidate.label))}</span><span class="confidence">${confidencePct(row.candidate.confidence)}</span></span>${showTruth ? `<span class="truth">Supplied label: ${esc(row.label ? human(row.label) : "Not supplied")}</span>` : ""}</button>`,
       )
       .join("") ||
     '<p class="empty">No messages in this state. Try another filter or adjust review capacity.</p>';
@@ -154,6 +189,45 @@ function render() {
   );
   renderInspector();
 }
+function renderDraftStatus() {
+  if (!inbox) return;
+  const dirty = thresholdDirty || Number($("budget").value) !== inbox.budget;
+  $("draft-status").hidden = !dirty;
+  $("draft-status").textContent = dirty
+    ? "Unapplied changes. Counts and decisions still use the saved plan; choose Apply to inbox."
+    : "";
+}
+async function refreshSessions() {
+  const result = await api("/api/sessions");
+  const sessions = result.sessions;
+  if (!sessions.some((s) => s.id === inbox.session))
+    sessions.unshift({
+      id: inbox.session,
+      source: inbox.source,
+      created: inbox.created,
+      total: inbox.metrics.total,
+      reviewed: inbox.metrics.reviewed,
+    });
+  $("saved-inboxes").innerHTML = sessions
+    .map(
+      (s) =>
+        `<option value="${esc(s.id)}">${esc(new Date(s.created).toLocaleString())} · ${s.source.startsWith("BANKING") ? "Benchmark replay" : "CSV import"} · ${s.total} requests · ${s.reviewed} reviewed · ${esc(s.id.slice(0, 6))}</option>`,
+    )
+    .join("");
+  $("saved-inboxes").value = inbox.session;
+}
+async function useInbox(state) {
+  inbox = state;
+  selected = null;
+  filter = "all";
+  page = 0;
+  $("inbox-search").value = "";
+  const url = new URL(location.href);
+  url.searchParams.set("inbox", inbox.session);
+  history.replaceState(null, "", url);
+  render(true);
+  await refreshSessions();
+}
 function renderInspector() {
   const row = inbox.rows.find((r) => r.id === selected);
   if (!row) {
@@ -162,7 +236,7 @@ function renderInspector() {
   }
   const review = row.review;
   $("inspector").innerHTML =
-    `<div class="eyebrow">${esc(row.id)} / DECISION TRACE</div><h3>${esc(boot.queues[row.suggested_queue])}</h3><div class="quote">“${esc(row.text)}”</div><span class="state ${esc(row.status)}">${stateLabel(row.status)}</span><div class="model-row"><span><b>Word baseline</b><small>${esc(human(row.baseline.label))}</small></span><span>${pct(row.baseline.confidence)}</span></div><div class="model-row"><span><b>Word + character candidate</b><small>${esc(human(row.candidate.label))}</small></span><span>${pct(row.candidate.confidence)}</span></div><p><small>Candidate’s nearest alternative: ${esc(human(row.candidate.alternatives[1].label))} (${pct(row.candidate.alternatives[1].confidence)}). Confidence is not a correctness guarantee.</small></p>${row.reasons.map((r) => `<span class="reason">${esc(reasonLabel(r))}</span>`).join("")}${showTruth ? `<p class="truth">Supplied intent: ${esc(row.label ? human(row.label) : "None")}</p>` : ""}${
+    `<div class="eyebrow">${esc(row.id)} / DECISION TRACE</div><h3>${esc(boot.queues[effectiveQueue(row)])}</h3><div class="quote">“${esc(row.text)}”</div><span class="state ${esc(row.status)}">${stateLabel(row.status)}</span><p><small>Original model-suggested team: ${esc(boot.queues[row.suggested_queue])}. No customer action was taken.</small></p><div class="model-row"><span><b>Word baseline</b><small>${esc(human(row.baseline.label))}</small></span><span>${confidencePct(row.baseline.confidence)}</span></div><div class="model-row"><span><b>Word + character candidate</b><small>${esc(human(row.candidate.label))}</small></span><span>${confidencePct(row.candidate.confidence)}</span></div><p><small>Candidate’s nearest alternative: ${esc(human(row.candidate.alternatives[1].label))} (${pct(row.candidate.alternatives[1].confidence)}). Confidence is not a correctness guarantee.</small></p>${row.reasons.map((r) => `<span class="reason">${esc(reasonLabel(r))}</span>`).join("")}${showTruth ? `<p class="truth">Supplied intent: ${esc(row.label ? human(row.label) : "None")}</p>` : ""}${
       review
         ? `<div class="review-log"><b>Saved human route: ${esc(boot.queues[review.queue])}</b><br>${esc(review.note)}<br><small>Persisted locally. Original model prediction and test labels are unchanged.</small></div>`
         : row.status === "review"
@@ -179,7 +253,20 @@ function renderInspector() {
           : `<p><small>${row.status === "waiting" ? "Waiting for capacity. Add a review slot to handle this request; it will not be auto-routed to clear the backlog." : "No review rule was triggered at this threshold. This is a routing suggestion, not a resolved ticket."}</small></p>`
     }`;
   const form = $("review-form");
-  if (form)
+  if (form) {
+    const key = inbox.session + ":" + row.id;
+    const draft = reviewDrafts.get(key);
+    if (draft) {
+      $("review-note").value = draft.note;
+      $("review-queue").value = draft.queue;
+    }
+    const saveDraft = () =>
+      reviewDrafts.set(key, {
+        note: $("review-note").value,
+        queue: $("review-queue").value,
+      });
+    $("review-note").addEventListener("input", saveDraft);
+    $("review-queue").addEventListener("change", saveDraft);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       action(form.querySelector("button"), async () => {
@@ -189,13 +276,19 @@ function renderInspector() {
           queue: $("review-queue").value,
           note: $("review-note").value,
           version: row.version,
+          revision: inbox.revision,
         });
+        reviewDrafts.delete(key);
+        filter = "reviewed";
+        $("inbox-search").value = "";
         render();
+        await refreshSessions();
         toast(
           "Human review saved locally. The benchmark and model are unchanged.",
         );
       });
     });
+  }
 }
 function renderReport() {
   const r = boot.report;
@@ -223,7 +316,62 @@ function renderReport() {
   $("limitations").innerHTML = r.limitations
     .map((text) => `<p>${esc(text)}</p>`)
     .join("");
+  renderDiagnostics();
 }
+const auditGroups = {
+  queue_disagreement: [
+    "Different mapped team",
+    "Automatic suggestion disagrees with the team obtained from the supplied label. That mapping is a project convention, not an operational outcome.",
+  ],
+  intent_only: [
+    "Same mapped team",
+    "The exact intent differs from the supplied label, but both map to the same team. Calling all of these wrong team routes would overstate the evidence.",
+  ],
+  flagged_match: [
+    "Flagged, intent matches",
+    "The intent matches the supplied label, but review rules still hold the request. A flag is not a corrected mistake; sensitive cases can need review despite a matching intent.",
+  ],
+  new_mistake: [
+    "New intent mismatch",
+    "The baseline matches the supplied intent; the candidate does not. This group includes both held and automatically suggested requests.",
+  ],
+};
+function renderDiagnostics() {
+  const d = boot.diagnostics;
+  $("diagnostic-summary").innerHTML =
+    `<div><strong>${d.intent_disagreements}</strong><span>intent-label disagreements</span><small>among ${d.automatic_suggestions.toLocaleString()} automatic suggestions</small></div><div><strong>${d.queue_disagreements}</strong><span>different mapped team</span><small>subset of the ${d.intent_disagreements} intent disagreements</small></div><div><strong>${d.intent_disagreements - d.queue_disagreements}</strong><span>same mapped team</span><small>intent differs; team mapping agrees</small></div>`;
+  $("audit-groups").innerHTML = Object.entries(auditGroups)
+    .map(
+      ([key, [name]]) =>
+        `<button class="secondary small ${key === auditGroup ? "active" : ""}" data-audit-group="${key}" aria-pressed="${key === auditGroup}">${esc(name)} <b>${d.groups[key].count.toLocaleString()}</b></button>`,
+    )
+    .join("");
+  document.querySelectorAll("[data-audit-group]").forEach((button) =>
+    button.addEventListener("click", () => {
+      auditGroup = button.dataset.auditGroup;
+      renderDiagnostics();
+    }),
+  );
+  $("reference-case").innerHTML = d.groups[auditGroup].examples
+    .map(
+      (r) =>
+        `<option value="${esc(r.id)}">${esc(r.id)} · ${esc(r.text.slice(0, 95))}</option>`,
+    )
+    .join("");
+  renderReferenceCase();
+}
+function renderReferenceCase() {
+  const row = boot.diagnostics.groups[auditGroup].examples.find(
+    (r) => r.id === $("reference-case").value,
+  );
+  if (!row) {
+    $("reference-detail").textContent = "No cases in this group.";
+    return;
+  }
+  $("reference-detail").innerHTML =
+    `<div class="reference-case-heading"><span class="eyebrow">${esc(row.id)} / FROZEN OFFICIAL TEST</span><span class="state ${row.suggestion_without_review ? "auto" : "review"}">${row.suggestion_without_review ? "Suggestion without review" : "Held for review"}</span></div><blockquote>${esc(row.text)}</blockquote><div class="reference-predictions"><div><small>SUPPLIED DATASET LABEL</small><b>${esc(human(row.label))}</b><span>${esc(boot.queues[row.label_queue])}</span></div><div><small>CANDIDATE PREDICTION · ${confidencePct(row.candidate.confidence)}</small><b>${esc(human(row.candidate.label))}</b><span>${esc(boot.queues[row.suggested_queue])}</span></div></div><p class="reference-baseline">Baseline: ${esc(human(row.baseline.label))} · ${confidencePct(row.baseline.confidence)} confidence. ${row.reasons.length ? "Hold reasons: " + row.reasons.map(reasonLabel).map(esc).join(" · ") : "No hold rule triggered under the frozen policy."}</p><p>${esc(auditGroups[auditGroup][1])}</p>`;
+}
+$("reference-case").addEventListener("change", renderReferenceCase);
 function view(name) {
   document
     .querySelectorAll(".view")
@@ -262,6 +410,23 @@ $("show-truth").addEventListener("change", () => {
   showTruth = $("show-truth").checked;
   render();
 });
+$("inbox-search").addEventListener("input", () => {
+  page = 0;
+  render();
+});
+$("reload-inbox").addEventListener("click", () =>
+  action($("reload-inbox"), async () => {
+    await useInbox(
+      await api(
+        "/api/workspace?session=" +
+          encodeURIComponent($("saved-inboxes").value),
+      ),
+    );
+    toast(
+      "Saved inbox reopened. Unsaved review drafts remain only in this page's memory.",
+    );
+  }),
+);
 $("prev").addEventListener("click", () => {
   page--;
   render();
@@ -270,14 +435,15 @@ $("next").addEventListener("click", () => {
   page++;
   render();
 });
-$("budget").addEventListener(
-  "input",
-  () => ($("budget-value").textContent = $("budget").value),
-);
+$("budget").addEventListener("input", () => {
+  $("budget-value").textContent = $("budget").value;
+  renderDraftStatus();
+});
 $("threshold").addEventListener("input", () => {
   thresholdDirty = true;
   $("threshold-value").textContent = $("threshold").value + "%";
   $("threshold").setAttribute("aria-valuetext", $("threshold").value + "%");
+  renderDraftStatus();
 });
 $("apply").addEventListener("click", () =>
   action($("apply"), async () => {
@@ -287,8 +453,10 @@ $("apply").addEventListener("click", () =>
         ? Number($("threshold").value) / 100
         : inbox.threshold,
       budget: Number($("budget").value),
+      revision: inbox.revision,
     });
-    render();
+    render(true);
+    await refreshSessions();
     toast(
       "Inbox plan updated. The frozen benchmark release check is unchanged.",
     );
@@ -299,27 +467,24 @@ $("reset-policy").addEventListener("click", () =>
     inbox = await api("/api/plan", {
       session: inbox.session,
       threshold: boot.threshold,
-      budget: Number($("budget").value),
+      budget: inbox.budget,
+      revision: inbox.revision,
     });
-    render();
+    render(true);
+    await refreshSessions();
+    toast(
+      "Frozen threshold restored. The saved review budget is unchanged; unapplied control edits were discarded.",
+    );
   }),
 );
 $("replay").addEventListener("click", () =>
   action($("replay"), async () => {
-    inbox = await api("/api/replay", {
+    const state = await api("/api/replay", {
       limit: 120,
       budget: 30,
       threshold: boot.threshold,
     });
-    selected = null;
-    filter = "all";
-    page = 0;
-    document
-      .querySelectorAll(".filter")
-      .forEach((el) =>
-        el.classList.toggle("active", el.dataset.filter === "all"),
-      );
-    render();
+    await useInbox(state);
     toast(
       "New deterministic benchmark replay. Prior imports/reviews remain in the local database.",
     );
@@ -330,6 +495,7 @@ $("open-import").addEventListener("click", () =>
 );
 $("close-import").addEventListener("click", () => $("import-dialog").close());
 $("csv-file").addEventListener("change", () => {
+  const generation = ++fileGeneration;
   const file = $("csv-file").files[0];
   if (!file) return;
   importFileError = "";
@@ -342,16 +508,21 @@ $("csv-file").addEventListener("change", () => {
   importRead = file
     .text()
     .then((text) => {
+      if (generation !== fileGeneration) return;
       $("csv-text").value = text;
       $("import-error").textContent = "";
     })
     .catch(() => {
+      if (generation !== fileGeneration) return;
       importFileError = "Could not read this file.";
       $("import-error").textContent = importFileError;
     });
 });
 $("csv-text").addEventListener("input", () => {
+  fileGeneration++;
+  importRead = Promise.resolve();
   importFileError = "";
+  $("import-error").textContent = "";
 });
 $("import-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -359,20 +530,12 @@ $("import-form").addEventListener("submit", (event) => {
     try {
       await importRead;
       if (importFileError) throw new Error(importFileError);
-      inbox = await api("/api/import", {
+      const state = await api("/api/import", {
         csv: $("csv-text").value,
         threshold: boot.threshold,
         budget: 30,
       });
-      selected = null;
-      page = 0;
-      filter = "all";
-      document
-        .querySelectorAll(".filter")
-        .forEach((el) =>
-          el.classList.toggle("active", el.dataset.filter === "all"),
-        );
-      render();
+      await useInbox(state);
       $("import-dialog").close();
       toast("CSV processed locally. The reference benchmark is unchanged.");
     } catch (error) {
@@ -390,20 +553,36 @@ $("try-form").addEventListener("submit", (event) => {
   action(event.submitter, async () => {
     const r = await api("/api/predict", { text: $("try-text").value });
     $("try-result").innerHTML =
-      `<div class="try-card"><strong>${r.reasons.length ? "Hold for human review" : "Suggested route: " + esc(boot.queues[r.suggested_queue])}</strong><p>Candidate intent: ${esc(human(r.candidate.label))} · ${pct(r.candidate.confidence)} confidence.</p><p>${r.reasons.length ? r.reasons.map((x) => esc(reasonLabel(x))).join(" · ") : "No review rule triggered at the frozen threshold. This can still be wrong."}</p><small>${r.elapsed_ms.toFixed(1)} ms observed local two-model request; not a benchmark p95. No action was taken.</small></div>`;
+      `<div class="try-card"><strong>${r.reasons.length ? "Hold for human review" : "Suggested route: " + esc(boot.queues[r.suggested_queue])}</strong><p>Candidate intent: ${esc(human(r.candidate.label))} · ${confidencePct(r.candidate.confidence)} confidence.</p><p>${r.reasons.length ? r.reasons.map((x) => esc(reasonLabel(x))).join(" · ") : "No review rule triggered at the frozen threshold. This can still be wrong."}</p><small>${r.elapsed_ms.toFixed(1)} ms observed local two-model request; not a benchmark p95. No action was taken.</small></div>`;
   });
 });
 async function init() {
+  mutableIds.forEach((id) => ($(id).disabled = true));
+  $("main").setAttribute("aria-busy", "true");
   try {
     boot = await api("/api/bootstrap");
-    inbox = await api("/api/workspace");
-    render();
+    const requested = new URL(location.href).searchParams.get("inbox");
+    let state;
+    if (requested) {
+      try {
+        state = await api(
+          "/api/workspace?session=" + encodeURIComponent(requested),
+        );
+      } catch {
+        toast(
+          "That inbox could not be reopened. Loaded the most recent saved inbox instead.",
+        );
+      }
+    }
+    await useInbox(state ?? (await api("/api/workspace")));
     renderReport();
     view(
       ["inbox", "check", "evidence"].includes(location.hash.slice(1))
         ? location.hash.slice(1)
         : "inbox",
     );
+    mutableIds.forEach((id) => ($(id).disabled = false));
+    $("main").setAttribute("aria-busy", "false");
   } catch (error) {
     showError(
       "Could not load QueuePilot: " +
