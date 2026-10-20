@@ -1,41 +1,48 @@
 1
-00:00:00,000 --> 00:00:07,000
-99.4% confident.
-Still not the whole request.
-Two issues. One predicted intent.
-An explicit rule holds this for review.
+00:00:00,000 --> 00:00:06,000
+28 intent mismatches.
+7 mapped-team mismatches.
+Of 1,684 automatic suggestions.
+21 intent mismatches still map to the same team.
 
 2
-00:00:07,000 --> 00:00:13,000
-120 requests.
-Where does uncertainty go?
-Change review capacity—not the model.
-Watch the waiting queue grow.
+00:00:06,000 --> 00:00:12,000
+Inspect the actual case.
+A different mapped team.
+“Need to deposit a cheque into my account”
+Label: Top-ups. Suggestion: Transfers & deposits.
 
 3
-00:00:13,000 --> 00:00:19,000
-Zero review slots.
-The backlog stays visible.
-The same 70 suggestions remain.
-All 50 flagged requests now wait.
+00:00:12,000 --> 00:00:18,000
+Now change the question.
+Different intent. Same team.
+Disposable-card limits vs. getting a disposable card.
+Both map to Cards & delivery. The label is debatable.
 
 4
-00:00:19,000 --> 00:00:25,000
-One human review.
-A record you can trace.
-Route + reason, persisted in SQLite.
-No automatic retraining. No account action.
+00:00:18,000 --> 00:00:24,000
+No review slots?
+Don’t force a guess.
+30 slots → 0 slots. 20 waiting → 50 waiting.
+The same 70 suggestions remain; no customer action.
 
 5
-00:00:25,000 --> 00:00:32,000
+00:00:24,000 --> 00:00:30,000
+A human override.
+A traceable saved decision.
+Original suggestion: Security & access.
+Demo override: Account & app. Reopened after reload.
+
+6
+00:00:30,000 --> 00:00:35,500
 More features.
 Not a free pass.
 88.87% → 88.67% exact-intent accuracy.
-Four queue checks inconclusive: BLOCK.
+Four team-slice checks inconclusive: release BLOCK.
 
-6
-00:00:32,000 --> 00:00:37,500
-Don’t just watch it.
-Reproduce it.
-Models, predictions, split IDs and tests.
-No API keys. Source on GitHub.
+7
+00:00:35,500 --> 00:00:40,000
+Inspect it. Re-run it.
+The evidence is part of it.
+105 tests. Portable models. Inputs and predictions.
+No API keys. No cloud inference. Source on GitHub.
