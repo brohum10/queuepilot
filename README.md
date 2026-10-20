@@ -15,17 +15,17 @@ real, persistent human-routing review interface.
 
 ## Watch the workflow
 
-https://github.com/user-attachments/assets/8b3616ad-f4dc-4c45-aa58-6a07e317c18d
+https://github.com/user-attachments/assets/81fe29ab-b1af-4a89-94d8-4847256dd144
 
-[37-second demo](media/QueuePilot-Demo.mp4) · [Cover](media/QueuePilot-Cover.png) ·
+[40-second demo](media/QueuePilot-Demo.mp4) · [Cover](media/QueuePilot-Cover.png) ·
 [Captions](media/QueuePilot-Captions.srt) · [Recording notes](media/README.md)
 
-The opening authored example scores **99.4%** for a duplicate-charge intent,
-but it also mentions a login issue. An explicit multiple-issue rule holds it for
-review. That score is **one prediction's confidence**, not benchmark accuracy.
-The video then changes review capacity, inspects a persisted human route, and
-shows the candidate's unfavorable release result. Actual local app capture;
-no generated UI or invented customer outcomes.
+The revised demo starts with **actual held-out benchmark disagreements**, not
+the authored two-issue fixture. It distinguishes intent mismatches from mapped
+team mismatches, shows a debatable dataset label, changes review capacity,
+reopens a saved human override, and retains the unfavorable release result.
+Real app capture with readable camera close-ups; no generated UI, invented
+customer outcomes, or claim that every model failure is detected.
 
 ## What you can do
 
@@ -41,6 +41,13 @@ no generated UI or invented customer outcomes.
   persists the original prediction and an append-only audit event, with version
   conflicts and capacity checks. Feedback never changes the test set or retrains
   the model behind the scenes.
+- **Return to saved work.** Reopen recent inboxes from a picker or bookmark their
+  URL. Search by request, ID or team. Human-selected teams are visible in the
+  list and inspector, alongside the unchanged original prediction. Draft notes
+  survive filtering within the page; only saved notes survive a reload.
+- **Reject stale changes.** Inbox revisions detect conflicting tabs. Snapshot
+  reads and transaction-scoped admission checks keep configuration and review
+  capacity consistent; old local databases migrate without dropping inboxes.
 - **Challenge a model update.** Compare the same official-test inputs under a
   fixed, checksum-pinned EvalDelta gate. Inspect queue-level uncertainty rather
   than looking only at overall accuracy.
@@ -84,8 +91,8 @@ production users or fabricated deployment impact are claimed.
 |---|---:|---:|
 | Exact-intent accuracy, all 3072 retained official-test requests | 88.87% | 88.67% |
 | Automatically suggested routes under the frozen policy | 1623 (52.83%) | 1684 (54.82%) |
-| Wrong automatic suggestions | 21 | 28 |
-| Accuracy **among those auto-routes only** | 98.71% | 98.34% |
+| Intent-label disagreements among those suggestions | 21 | 28 |
+| Exact-intent accuracy **among those suggestions only** | 98.71% | 98.34% |
 
 The conditional accuracy is **not overall model accuracy**. All 1388 candidate
 review flags remain flags—not errors corrected by humans. The candidate fixes
@@ -93,6 +100,28 @@ review flags remain flags—not errors corrected by humans. The candidate fixes
 passes the configured 2-point non-regression margin, but four team-queue checks
 are inconclusive, so the final decision is **BLOCK**. We retain this unfavorable
 result; we do not search the official test set for a nicer candidate.
+
+### An intent error is not automatically a team-routing error
+
+Under the same frozen candidate policy, **28 of 1684 automatic suggestions**
+disagree with the supplied exact intent. **21 still map to the same team; 7 map
+to a different team.** Neither number measures resolved tickets or business
+impact. The seven-team mapping is a project convention, and benchmark labels
+can be ambiguous. We do not replace the harder 77-intent result with a flattering
+coarser metric.
+
+The **retrospective failure explorer** lets you inspect these two groups, held
+requests whose intent matches, and newly introduced intent mismatches. It shows
+up to six cases per group, sorted by candidate confidence then case ID—not a
+representative sample. Supplied labels are used for this analysis, never routing
+or threshold fitting. Reproduce its counts with `python diagnostics.py --summary`.
+The frozen release gate still compares exact-intent correctness within team
+slices, **not team-routing accuracy**, and its decision stays **BLOCK**.
+
+Some label disagreements are genuinely ambiguous. Some confident suggestions
+escape the hold rules. Inspecting them is the point, not a claim that the system
+detects every failure. Rule changes motivated by these test cases would require
+fresh independent validation, not a claim of improvement on this same test set.
 
 Both classifiers use identical fitting rows. Vocabulary/IDF and weights are fit
 only there; temperature scaling uses a separate calibration split; confidence
@@ -134,7 +163,7 @@ inbox limit is 1000 requests; the offline planner handles the full benchmark.
 
 ## Reproduce and test
 
-**82 automated tests**, exercised on Python 3.12 and 3.14. Public
+**105 automated tests**, exercised on Python 3.12 and 3.14. Public
 [GitHub Actions](https://github.com/brohum10/queuepilot/actions/workflows/tests.yml)
 also verifies the evidence bundle and performs fresh training on both versions.
 Passing software tests does not mean the candidate passes its model-release gate.
@@ -142,6 +171,7 @@ Passing software tests does not mean the candidate passes its model-release gate
 ```sh
 python -m unittest -v
 python artifacts.py --verify evidence/queuepilot-evidence.zip
+python diagnostics.py --summary
 OPENBLAS_NUM_THREADS=1 python train.py --output evidence/rebuilt/fresh-run
 ```
 
@@ -154,7 +184,18 @@ a different run into claims about the recorded demo.
 To rebuild the public bundle after deliberate source/artifact changes:
 `python artifacts.py --build`. Review `evidence/manifest.json` first; the bundle
 includes only reference artifacts and project sources, never runtime inbox data.
+The exporter uses a closed filename allowlist; unrelated JSON, CSV and log files
+are excluded even if placed in a project folder. Startup rejects a mismatch
+between the frozen experiment's source fingerprints and the inference/policy code.
 Unsigned hashes establish file consistency, not authenticity or validity.
+
+Local API consumers can list recent inboxes with `GET /api/sessions` and reopen
+one through `GET /api/workspace?session=<id>`. `POST /api/plan` and
+`POST /api/review` require the returned inbox `revision`; reviews additionally
+require the message `version`. Stale changes return HTTP 409 without writing.
+These endpoints retain the same loopback/origin/token boundary as the interface.
+The historical report field `wrong_auto` counts **exact-intent disagreements**,
+not disagreements with the seven-team mapping.
 
 ## Boundaries that matter
 
