@@ -1,11 +1,15 @@
 import http.client
+import csv
+import io
 import json
 from pathlib import Path
 import tempfile
 import threading
+import shutil
 import unittest
+from unittest.mock import patch
 
-from server import make_server
+from server import Application, ROOT, make_server
 
 
 class ServerTests(unittest.TestCase):
@@ -104,7 +108,7 @@ class ServerTests(unittest.TestCase):
                 "Origin": self.origin,
                 "X-QueuePilot-Token": self.server.app.token,
                 "Content-Type": "application/json",
-                "Content-Length": "521000",
+                "Content-Length": "1100001",
             }.items():
                 connection.putheader(name, value)
             connection.endheaders()
@@ -190,6 +194,79 @@ class ServerTests(unittest.TestCase):
 
     def test_unknown_endpoint(self):
         self.assertEqual(self.post("/api/not-real", {})[0], 404)
+
+    def test_session_history_restores_prior_import(self):
+        first = json.loads(
+            self.post("/api/import", {"csv": "id,text\na,Where is my card?"})[2]
+        )
+        self.post("/api/replay", {})
+        history = json.loads(self.request("/api/sessions")[2])["sessions"]
+        self.assertIn(first["session"], [x["id"] for x in history])
+        restored = json.loads(
+            self.request("/api/workspace?session=" + first["session"])[2]
+        )
+        self.assertEqual(restored["rows"][0]["text"], "Where is my card?")
+
+    def test_stale_http_plan_returns_conflict(self):
+        state = json.loads(self.post("/api/replay", {})[2])
+        body = {
+            "session": state["session"],
+            "threshold": 0.8,
+            "budget": 0,
+            "revision": state["revision"],
+        }
+        self.assertEqual(self.post("/api/plan", body)[0], 200)
+        self.assertEqual(self.post("/api/plan", body)[0], 409)
+
+    def test_plan_requires_explicit_revision(self):
+        state = json.loads(self.post("/api/replay", {})[2])
+        self.assertEqual(
+            self.post(
+                "/api/plan",
+                {"session": state["session"], "threshold": 0.8, "budget": 1},
+            )[0],
+            400,
+        )
+
+    def test_bootstrap_analysis_is_only_reference_data(self):
+        self.post("/api/import", {"csv": "id,text\nprivate,PRIVATE DEMO MESSAGE"})
+        body = json.loads(self.request("/api/bootstrap")[2])
+        self.assertNotIn("PRIVATE DEMO MESSAGE", json.dumps(body))
+        self.assertEqual(body["diagnostics"]["queue_disagreements"], 7)
+
+    def test_source_drift_rejected_at_startup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("models", "evidence"):
+                shutil.copytree(ROOT / name, root / name)
+            for name in ("train.py", "text_model.py", "routing.py", "evaldelta.py"):
+                shutil.copyfile(ROOT / name, root / name)
+            with (root / "routing.py").open("a") as stream:
+                stream.write("\n# drift\n")
+            with self.assertRaisesRegex(ValueError, "Reference source changed"):
+                Application(root / "state.db", root)
+
+    def test_valid_csv_with_json_escaping_fits_http_envelope(self):
+        from test_routing import row
+
+        stream = io.StringIO()
+        writer = csv.writer(stream)
+        writer.writerow(["id", "text"])
+        writer.writerows((str(i), '"' * 1200) for i in range(150))
+        content = stream.getvalue()
+        self.assertLess(len(content.encode()), 500000)
+        self.assertGreater(len(json.dumps({"csv": content}).encode()), 520000)
+        prediction = row()["candidate"]
+
+        def stub(rows):
+            return [
+                {**r, "baseline": prediction, "candidate": prediction} for r in rows
+            ], 1.0
+
+        with patch.object(self.server.app, "predict", side_effect=stub):
+            status, _, body = self.post("/api/import", {"csv": content})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["metrics"]["total"], 150)
 
 
 if __name__ == "__main__":
