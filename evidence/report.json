@@ -1,0 +1,516 @@
+{
+  "version": 2,
+  "created_utc": "2026-10-20T18:26:53.874192+00:00",
+  "protocol_sha256": "970a8c799e50b1f3e721611db9817445aabeb280deb349c2b310494ec8ebbb8f",
+  "source_sha256": {
+    "train.py": "cbfa774e254f58bc21161617a8593064b614fd684a88e71ef135298b61d0d0d3",
+    "text_model.py": "a3b18a55be92910a86ef8f6a692a8774217bbaca9949aca737fbb2dbb3e13669",
+    "routing.py": "d1409454b648ecf05a6280d1a080fa5c0749eacb9c7662de265372efc4a23a5b",
+    "evaldelta.py": "82870b5ca827ff1a57640c79832d916f5daac31cce47cd9bcc162c0e2b7fb97e"
+  },
+  "runtime": {
+    "python": "3.12.14",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "sklearn": "1.9.1"
+  },
+  "counts": {
+    "raw_train": 10003,
+    "raw_test": 3080,
+    "fit": 6999,
+    "calibration": 1500,
+    "policy": 1500,
+    "test": 3072,
+    "excluded_duplicates": 12,
+    "intents": 77
+  },
+  "models": {
+    "baseline": {
+      "name": "Word TF-IDF + logistic regression",
+      "calibration": {
+        "temperature": 0.5668067226890756,
+        "nll_before": 0.6215409881234077,
+        "nll_after": 0.438525582734715,
+        "grid": [
+          0.35,
+          2.5,
+          120
+        ]
+      },
+      "policy": {
+        "threshold": 0.9569747097446839,
+        "policy_counts": {
+          "auto": 768,
+          "review": 732,
+          "waiting": 0,
+          "reviewed": 0,
+          "total": 1500,
+          "flagged": 732,
+          "labeled": 1500,
+          "labeled_auto": 768,
+          "wrong_auto": 15,
+          "auto_accuracy": 0.98046875,
+          "coverage": 0.512
+        },
+        "target_met_on_policy": true,
+        "target": 0.98,
+        "minimum_accepted": 40,
+        "scope": "Empirical policy-split target, not a guarantee. Frozen before official test evaluation."
+      },
+      "training_seconds": 1.1129985000006855,
+      "n_features": 2030,
+      "parameters": 156387,
+      "accuracy": 0.888671875
+    },
+    "candidate": {
+      "name": "Word + character TF-IDF + logistic regression",
+      "calibration": {
+        "temperature": 0.4584033613445378,
+        "nll_before": 0.8363904993400202,
+        "nll_after": 0.438047887398009,
+        "grid": [
+          0.35,
+          2.5,
+          120
+        ]
+      },
+      "policy": {
+        "threshold": 0.9513469835113346,
+        "policy_counts": {
+          "auto": 821,
+          "review": 679,
+          "waiting": 0,
+          "reviewed": 0,
+          "total": 1500,
+          "flagged": 679,
+          "labeled": 1500,
+          "labeled_auto": 821,
+          "wrong_auto": 16,
+          "auto_accuracy": 0.9805115712545676,
+          "coverage": 0.5473333333333333
+        },
+        "target_met_on_policy": true,
+        "target": 0.98,
+        "minimum_accepted": 40,
+        "scope": "Empirical policy-split target, not a guarantee. Frozen before official test evaluation."
+      },
+      "training_seconds": 13.359530625166371,
+      "n_features": 30000,
+      "parameters": 2310077,
+      "accuracy": 0.88671875
+    }
+  },
+  "gate": {
+    "version": 1,
+    "decision": "block",
+    "baseline_run": "baseline",
+    "candidate_run": "candidate",
+    "suite": "banking77-deduplicated-v1",
+    "scorer": "exact-intent-v1",
+    "baseline_sha256": "36229125ac8c963222b774594fa7ac7e95e7041064e0b49e3cc564fd2c246629",
+    "candidate_sha256": "8ec316c6dea8a06877a2231248a1923d329c25c6826fdbaf37ec43826f7416c0",
+    "config": {
+      "margin": 0.02,
+      "min_cases": 50,
+      "samples": 2000,
+      "seed": 17,
+      "max_p95_ms": 1000
+    },
+    "method": "paired percentile bootstrap; unadjusted per-slice 95% intervals",
+    "blockers": [
+      {
+        "slice": "tag:cards",
+        "quality": "inconclusive",
+        "latency": "pass"
+      },
+      {
+        "slice": "tag:cash",
+        "quality": "inconclusive",
+        "latency": "pass"
+      },
+      {
+        "slice": "tag:security",
+        "quality": "inconclusive",
+        "latency": "pass"
+      },
+      {
+        "slice": "tag:topups",
+        "quality": "inconclusive",
+        "latency": "pass"
+      }
+    ],
+    "slices": [
+      {
+        "slice": "overall",
+        "n": 3072,
+        "mean_delta": -0.001953125,
+        "baseline_mean": 0.888671875,
+        "candidate_mean": 0.88671875,
+        "interval_95": [
+          -0.009440104166666666,
+          0.005859375
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.03798807779276103,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:account",
+        "n": 359,
+        "mean_delta": 0.008356545961002786,
+        "baseline_mean": 0.9331476323119777,
+        "candidate_mean": 0.9415041782729805,
+        "interval_95": [
+          -0.002785515320334262,
+          0.022284122562674095
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.03798807779276103,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:cards",
+        "n": 717,
+        "mean_delta": -0.005578800557880056,
+        "baseline_mean": 0.8926080892608089,
+        "candidate_mean": 0.8870292887029289,
+        "interval_95": [
+          -0.02092050209205021,
+          0.009762900976290097
+        ],
+        "quality_status": "inconclusive",
+        "candidate_p95_ms": 0.03798807779276103,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:cash",
+        "n": 278,
+        "mean_delta": -0.017985611510791366,
+        "baseline_mean": 0.9028776978417267,
+        "candidate_mean": 0.8848920863309353,
+        "interval_95": [
+          -0.050359712230215826,
+          0.014388489208633094
+        ],
+        "quality_status": "inconclusive",
+        "candidate_p95_ms": 0.03798807779276103,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:payments",
+        "n": 360,
+        "mean_delta": 0.005555555555555556,
+        "baseline_mean": 0.9083333333333333,
+        "candidate_mean": 0.9138888888888889,
+        "interval_95": [
+          -0.013888888888888888,
+          0.025
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.03798807779276103,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:security",
+        "n": 478,
+        "mean_delta": 0.0,
+        "baseline_mean": 0.8682008368200836,
+        "candidate_mean": 0.8682008368200836,
+        "interval_95": [
+          -0.02092050209205021,
+          0.02092050209205021
+        ],
+        "quality_status": "inconclusive",
+        "candidate_p95_ms": 0.03798807779276103,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:topups",
+        "n": 400,
+        "mean_delta": -0.0125,
+        "baseline_mean": 0.8675,
+        "candidate_mean": 0.855,
+        "interval_95": [
+          -0.0325,
+          0.0075
+        ],
+        "quality_status": "inconclusive",
+        "candidate_p95_ms": 0.03798807779276103,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:transfers",
+        "n": 480,
+        "mean_delta": 0.00625,
+        "baseline_mean": 0.8645833333333334,
+        "candidate_mean": 0.8708333333333333,
+        "interval_95": [
+          -0.0125,
+          0.027083333333333334
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.03798807779276103,
+        "latency_status": "pass"
+      }
+    ],
+    "regressions": [
+      {
+        "id": "test-1019",
+        "delta": -1,
+        "tags": [
+          "topups"
+        ]
+      },
+      {
+        "id": "test-1084",
+        "delta": -1,
+        "tags": [
+          "security"
+        ]
+      },
+      {
+        "id": "test-1087",
+        "delta": -1,
+        "tags": [
+          "security"
+        ]
+      },
+      {
+        "id": "test-1183",
+        "delta": -1,
+        "tags": [
+          "security"
+        ]
+      },
+      {
+        "id": "test-1204",
+        "delta": -1,
+        "tags": [
+          "security"
+        ]
+      },
+      {
+        "id": "test-1251",
+        "delta": -1,
+        "tags": [
+          "cards"
+        ]
+      },
+      {
+        "id": "test-1299",
+        "delta": -1,
+        "tags": [
+          "cards"
+        ]
+      },
+      {
+        "id": "test-1347",
+        "delta": -1,
+        "tags": [
+          "topups"
+        ]
+      },
+      {
+        "id": "test-1405",
+        "delta": -1,
+        "tags": [
+          "security"
+        ]
+      },
+      {
+        "id": "test-1416",
+        "delta": -1,
+        "tags": [
+          "security"
+        ]
+      }
+    ]
+  },
+  "identical_control": {
+    "version": 1,
+    "decision": "pass",
+    "baseline_run": "baseline",
+    "candidate_run": "baseline",
+    "suite": "banking77-deduplicated-v1",
+    "scorer": "exact-intent-v1",
+    "baseline_sha256": "36229125ac8c963222b774594fa7ac7e95e7041064e0b49e3cc564fd2c246629",
+    "candidate_sha256": "36229125ac8c963222b774594fa7ac7e95e7041064e0b49e3cc564fd2c246629",
+    "config": {
+      "margin": 0.02,
+      "min_cases": 50,
+      "samples": 2000,
+      "seed": 17,
+      "max_p95_ms": 1000
+    },
+    "method": "paired percentile bootstrap; unadjusted per-slice 95% intervals",
+    "blockers": [],
+    "slices": [
+      {
+        "slice": "overall",
+        "n": 3072,
+        "mean_delta": 0.0,
+        "baseline_mean": 0.888671875,
+        "candidate_mean": 0.888671875,
+        "interval_95": [
+          0.0,
+          0.0
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.004847357710483872,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:account",
+        "n": 359,
+        "mean_delta": 0.0,
+        "baseline_mean": 0.9331476323119777,
+        "candidate_mean": 0.9331476323119777,
+        "interval_95": [
+          0.0,
+          0.0
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.004847357710483872,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:cards",
+        "n": 717,
+        "mean_delta": 0.0,
+        "baseline_mean": 0.8926080892608089,
+        "candidate_mean": 0.8926080892608089,
+        "interval_95": [
+          0.0,
+          0.0
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.004847357710483872,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:cash",
+        "n": 278,
+        "mean_delta": 0.0,
+        "baseline_mean": 0.9028776978417267,
+        "candidate_mean": 0.9028776978417267,
+        "interval_95": [
+          0.0,
+          0.0
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.004847357710483872,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:payments",
+        "n": 360,
+        "mean_delta": 0.0,
+        "baseline_mean": 0.9083333333333333,
+        "candidate_mean": 0.9083333333333333,
+        "interval_95": [
+          0.0,
+          0.0
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.004847357710483872,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:security",
+        "n": 478,
+        "mean_delta": 0.0,
+        "baseline_mean": 0.8682008368200836,
+        "candidate_mean": 0.8682008368200836,
+        "interval_95": [
+          0.0,
+          0.0
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.004847357710483872,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:topups",
+        "n": 400,
+        "mean_delta": 0.0,
+        "baseline_mean": 0.8675,
+        "candidate_mean": 0.8675,
+        "interval_95": [
+          0.0,
+          0.0
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.004847357710483872,
+        "latency_status": "pass"
+      },
+      {
+        "slice": "tag:transfers",
+        "n": 480,
+        "mean_delta": 0.0,
+        "baseline_mean": 0.8645833333333334,
+        "candidate_mean": 0.8645833333333334,
+        "interval_95": [
+          0.0,
+          0.0
+        ],
+        "quality_status": "pass",
+        "candidate_p95_ms": 0.004847357710483872,
+        "latency_status": "pass"
+      }
+    ],
+    "regressions": []
+  },
+  "changes": {
+    "both_wrong": 277,
+    "both_correct": 2659,
+    "new_mistake": 71,
+    "improved": 65
+  },
+  "frozen_policy_test": {
+    "baseline": {
+      "auto": 1623,
+      "review": 1449,
+      "waiting": 0,
+      "reviewed": 0,
+      "total": 3072,
+      "flagged": 1449,
+      "labeled": 3072,
+      "labeled_auto": 1623,
+      "wrong_auto": 21,
+      "auto_accuracy": 0.9870609981515711,
+      "coverage": 0.5283203125
+    },
+    "candidate": {
+      "auto": 1684,
+      "review": 1388,
+      "waiting": 0,
+      "reviewed": 0,
+      "total": 3072,
+      "flagged": 1388,
+      "labeled": 3072,
+      "labeled_auto": 1684,
+      "wrong_auto": 28,
+      "auto_accuracy": 0.9833729216152018,
+      "coverage": 0.5481770833333334
+    }
+  },
+  "queue_counts": {
+    "cards": 717,
+    "account": 359,
+    "payments": 360,
+    "cash": 278,
+    "topups": 400,
+    "security": 478,
+    "transfers": 480
+  },
+  "limitations": [
+    "Crowdsourced English, single-intent BANKING77 benchmark; not real customer traffic.",
+    "One predeclared seed and a previously public benchmark, not a blind generalization study.",
+    "Confidence is not correctness. Sparse text features are not an LLM or semantic understanding.",
+    "Approximate paired bootstrap intervals are unadjusted per slice; PASS is not production approval.",
+    "Latency is batch-amortized inference on this machine, not request p95 or an SLA.",
+    "Policy target is empirical. Live imports have no error rate unless labels are supplied.",
+    "Capacity is a batch review-slot assumption, not measured human throughput or staffing savings.",
+    "Sensitive/multiple-issue rules are conservative heuristics, not general safety or OOD detectors."
+  ]
+}
