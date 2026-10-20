@@ -11,6 +11,22 @@ QueuePilot is the applied version-two direction of
 demo remains intact. This repository moves the workflow to text requests and a
 real, persistent human-routing review interface.
 
+![QueuePilot inbox with capacity-limited review and a visible waiting queue](media/inbox.png)
+
+## Watch the workflow
+
+https://github.com/user-attachments/assets/8b3616ad-f4dc-4c45-aa58-6a07e317c18d
+
+[37-second demo](media/QueuePilot-Demo.mp4) · [Cover](media/QueuePilot-Cover.png) ·
+[Captions](media/QueuePilot-Captions.srt) · [Recording notes](media/README.md)
+
+The opening authored example scores **99.4%** for a duplicate-charge intent,
+but it also mentions a login issue. An explicit multiple-issue rule holds it for
+review. That score is **one prediction's confidence**, not benchmark accuracy.
+The video then changes review capacity, inspects a persisted human route, and
+shows the candidate's unfavorable release result. Actual local app capture;
+no generated UI or invented customer outcomes.
+
 ## What you can do
 
 - **Replay 120 public support questions.** Inspect suggested routes, alternatives,
@@ -117,6 +133,11 @@ admission sorts in **O(n log n)** without looking at ground-truth labels. The
 inbox limit is 1000 requests; the offline planner handles the full benchmark.
 
 ## Reproduce and test
+
+**82 automated tests**, exercised on Python 3.12 and 3.14. Public
+[GitHub Actions](https://github.com/brohum10/queuepilot/actions/workflows/tests.yml)
+also verifies the evidence bundle and performs fresh training on both versions.
+Passing software tests does not mean the candidate passes its model-release gate.
 
 ```sh
 python -m unittest -v
