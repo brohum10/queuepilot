@@ -1,0 +1,41 @@
+1
+00:00:00,000 --> 00:00:07,000
+99.4% confident.
+Still not the whole request.
+Two issues. One predicted intent.
+An explicit rule holds this for review.
+
+2
+00:00:07,000 --> 00:00:13,000
+120 requests.
+Where does uncertainty go?
+Change review capacity—not the model.
+Watch the waiting queue grow.
+
+3
+00:00:13,000 --> 00:00:19,000
+Zero review slots.
+The backlog stays visible.
+The same 70 suggestions remain.
+All 50 flagged requests now wait.
+
+4
+00:00:19,000 --> 00:00:25,000
+One human review.
+A record you can trace.
+Route + reason, persisted in SQLite.
+No automatic retraining. No account action.
+
+5
+00:00:25,000 --> 00:00:32,000
+More features.
+Not a free pass.
+88.87% → 88.67% exact-intent accuracy.
+Four queue checks inconclusive: BLOCK.
+
+6
+00:00:32,000 --> 00:00:37,500
+Don’t just watch it.
+Reproduce it.
+Models, predictions, split IDs and tests.
+No API keys. Source on GitHub.
