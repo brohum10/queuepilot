@@ -1,0 +1,17 @@
+{
+  "scope": "Author-written engineering fixtures developed alongside explicit rules. Not a blind or representative OOD benchmark.",
+  "cases": [
+    {"id":"multi-1","text":"I was charged twice, and now I can't log in.","required_reason":"multiple_issue_rule"},
+    {"id":"multi-2","text":"My transfer failed and my password no longer works.","required_reason":"multiple_issue_rule"},
+    {"id":"multi-3","text":"I need a refund and I am locked out of the app.","required_reason":"multiple_issue_rule"},
+    {"id":"multi-4","text":"I can't sign in and a payment is missing.","required_reason":"multiple_issue_rule"},
+    {"id":"multi-5","text":"My deposit hasn't arrived and my passcode is broken.","required_reason":"multiple_issue_rule"},
+    {"id":"security-1","text":"Someone stole my card.","required_reason":"sensitive_request"},
+    {"id":"security-2","text":"I think my account was hacked.","required_reason":"sensitive_request"},
+    {"id":"security-3","text":"I need help with a fraud report.","required_reason":"sensitive_request"},
+    {"id":"security-4","text":"My card details are compromised.","required_reason":"sensitive_request"},
+    {"id":"security-5","text":"Is this payment a scam?","required_reason":"sensitive_request"},
+    {"id":"unknown-1","text":"🪐🦕🎻","required_reason":"no_known_features"},
+    {"id":"unknown-2","text":"🧊🧬🪷","required_reason":"no_known_features"}
+  ]
+}
