@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "dataset": "BANKING77",
+  "source_revision": "57ec275d8078af65b7731c2a98be812d844a6d6b",
+  "seed": 17,
+  "train_fraction": 0.7,
+  "calibration_fraction": 0.15,
+  "policy_fraction": 0.15,
+  "policy_accuracy_target": 0.98,
+  "minimum_policy_accepted": 40,
+  "margin_guard": 0.12,
+  "release_max_loss": 0.02,
+  "release_min_cases": 50,
+  "bootstrap_samples": 2000,
+  "latency_budget_batch_amortized_ms": 1000,
+  "source_sha256": {
+    "data/train.csv": "b06e26ac675513959a63135f11b94ea7786ed02da65db93a5650d8838cbc664b",
+    "data/test.csv": "d12d6e3bc4c3103966ae786dc435913c0c563dfa328f5a3646d0e62cfeeb474d",
+    "data/categories.json": "53261da888122daf2d120d925458631d9619e15d82e56052e7a42e535ce32b63",
+    "evaldelta.py": "82870b5ca827ff1a57640c79832d916f5daac31cce47cd9bcc162c0e2b7fb97e"
+  }
+}
