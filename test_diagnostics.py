@@ -46,6 +46,11 @@ class DiagnosticTests(unittest.TestCase):
                         self.assertEqual(case["baseline"]["label"], case["label"])
 
     def test_example_order_and_cap(self):
+        smaller = reference_audit(self.rows, self.threshold, limit=1)
+        self.assertIn("First 1 examples", smaller["order"])
+        self.assertTrue(
+            all(len(g["examples"]) <= 1 for g in smaller["groups"].values())
+        )
         for group in self.audit["groups"].values():
             cases = group["examples"]
             self.assertLessEqual(len(cases), 6)

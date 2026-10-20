@@ -62,7 +62,7 @@ def reference_audit(rows, threshold, limit=6):
         + len(groups["intent_only"]),
         "queue_disagreements": len(groups["queue_disagreement"]),
         "threshold": threshold,
-        "order": "Highest candidate confidence first; ties by case ID. First six examples per group, not representative samples.",
+        "order": f"Highest candidate confidence first; ties by case ID. First {limit} examples per group, not representative samples.",
         "groups": {
             name: {
                 "count": len(items),
@@ -76,3 +76,26 @@ def reference_audit(rows, threshold, limit=6):
             for name, items in groups.items()
         },
     }
+
+
+if __name__ == "__main__":
+    import argparse
+    import json
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--summary", action="store_true", help="Print counts without the case previews."
+    )
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parent
+    report = json.loads((root / "evidence/report.json").read_text())
+    result = reference_audit(
+        json.loads((root / "evidence/predictions.json").read_text()),
+        report["models"]["candidate"]["policy"]["threshold"],
+    )
+    if args.summary:
+        result["groups"] = {
+            name: {"count": group["count"]} for name, group in result["groups"].items()
+        }
+    print(json.dumps(result, indent=2, allow_nan=False))
